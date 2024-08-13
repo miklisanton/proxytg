@@ -1,0 +1,6 @@
+PyYAML~=6.0.2
+selenium-wire~=5.1.0
+requests~=2.32.3
+selenium~=4.23.1
+setuptools~=68.2.0
+blinker~=1.7.0
