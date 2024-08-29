@@ -1,4 +1,5 @@
 import json
+import re
 import os.path
 from seleniumwire import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -13,12 +14,15 @@ logger = logging.getLogger(__name__)
 class TelegramAccount:
     base_url = "https://web.telegram.org"
 
-    def __init__(self, account_name, proxy_data, sessions_dir):
+    def __init__(self, account_name, sessions_dir, proxy_data=None, mobile_proxy=False):
         self.account_name = account_name
         self.sessions_dir = sessions_dir
         os.makedirs(sessions_dir, exist_ok=True)
         options = Options()
-        proxy_url = get_proxy(proxy_data)
+        if mobile_proxy:
+            proxy_url = get_mobile_proxy(proxy_data)
+        else:
+            proxy_url = self.get_proxy()
         if proxy_url == "-":
             seleniumwire_options = None
         else:
@@ -32,12 +36,30 @@ class TelegramAccount:
         self.driver = webdriver.Chrome(options=options, seleniumwire_options=seleniumwire_options)
         self.fetch_account()
 
+    def get_proxy(self):
+        try:
+            with open(os.path.join(self.sessions_dir, f'{self.account_name}_proxy.txt'), 'r') as file:
+                proxy = file.readline()
+                return proxy
+        except FileNotFoundError:
+            # Request proxy from stdin until valid
+            proxy_pattern = re.compile(r'^http://(?:\S+:\S+@)?\S+:\d+$')
+            while True:
+                proxy = input("Enter a proxy (format: http://username:password@host:port) or - to avoid proxy: ")
+                if proxy == "-" or re.match(proxy_pattern, proxy) is not None:
+                    print(f"Valid proxy entered: {proxy}")
+                    with open(os.path.join(self.sessions_dir, f'{self.account_name}_proxy.txt'), 'w') as file:
+                        file.write(proxy)
+                    return proxy
+                else:
+                    print("Invalid proxy format. Please try again.")
+
     def save_state(self):
         cookies = self.driver.get_cookies()
-        with open(os.path.join("sessions", f'{self.account_name}_cookies.pkl'), 'wb') as file:
+        with open(os.path.join(self.sessions_dir, f'{self.account_name}_cookies.pkl'), 'wb') as file:
             pickle.dump(cookies, file)
         local_storage = self.driver.execute_script("return window.localStorage;")
-        with open(os.path.join("sessions", f'{self.account_name}_local_storage.json'), 'w') as file:
+        with open(os.path.join(self.sessions_dir, f'{self.account_name}_local_storage.json'), 'w') as file:
             json.dump(local_storage, file)
 
     def login(self):
@@ -70,7 +92,7 @@ class TelegramAccount:
         self.driver.quit()
 
 
-def get_proxy(proxy):
+def get_mobile_proxy(proxy):
     url = f"https://changeip.mobileproxy.space/?proxy_key={proxy['key']}&format=json"
     headers = {
         'User-Agent': "Mozilla/5.0 (iPad; U; CPU OS 3_2 like Mac OS X; en-us) AppleWebKit/531.21.10 (KHTML, like Gecko) Version/4.0.4 Mobile/7B334b Safari/531.21.102011-10-16 20:23:10"
