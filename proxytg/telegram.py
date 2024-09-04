@@ -7,6 +7,7 @@ import time
 import pickle
 import logging
 import requests
+from selenium_stealth import stealth
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,13 @@ class TelegramAccount:
             }
 
         self.driver = webdriver.Chrome(options=opts, seleniumwire_options=seleniumwire_options)
+        stealth(self.driver,
+                languages=["en-US", "en"],
+                vendor="Google Inc.",
+                platform="Linux",
+                webgl_vendor="Intel Inc.",
+                renderer="Intel Iris OpenGL Engine",
+                fix_hairline=True)
         self.fetch_account()
 
     def get_proxy(self):

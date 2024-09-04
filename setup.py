@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="proxytg",
-    version="0.1.1",
+    version="0.1.2",
     author="Anton Miklis",
     author_email="antonmiklis@icloud.com",
     description="Package implements TelegramAccount class, which keeps your telegram session persistent with proxy",
