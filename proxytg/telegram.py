@@ -14,11 +14,19 @@ logger = logging.getLogger(__name__)
 class TelegramAccount:
     base_url = "https://web.telegram.org"
 
-    def __init__(self, account_name, sessions_dir, proxy_data=None, mobile_proxy=False):
+    def __init__(self,
+                 account_name,
+                 sessions_dir,
+                 proxy_data=None,
+                 mobile_proxy=False,
+                 options=None):
         self.account_name = account_name
         self.sessions_dir = sessions_dir
         os.makedirs(sessions_dir, exist_ok=True)
-        options = Options()
+        if options is None:
+            opts = Options()
+        else:
+            opts = options
         if mobile_proxy:
             proxy_url = get_mobile_proxy(proxy_data)
         else:
@@ -33,7 +41,7 @@ class TelegramAccount:
                 },
             }
 
-        self.driver = webdriver.Chrome(options=options, seleniumwire_options=seleniumwire_options)
+        self.driver = webdriver.Chrome(options=opts, seleniumwire_options=seleniumwire_options)
         self.fetch_account()
 
     def get_proxy(self):
@@ -45,7 +53,7 @@ class TelegramAccount:
             # Request proxy from stdin until valid
             proxy_pattern = re.compile(r'^http://(?:\S+:\S+@)?\S+:\d+$')
             while True:
-                proxy = input("Enter a proxy (format: http://username:password@host:port) or - to avoid proxy: ")
+                proxy = input("Enter a proxy (format: http://username:password@host:port), ipv6 suported, host must be enclosed in [], - to avoid proxy: ")
                 if proxy == "-" or re.match(proxy_pattern, proxy) is not None:
                     print(f"Valid proxy entered: {proxy}")
                     with open(os.path.join(self.sessions_dir, f'{self.account_name}_proxy.txt'), 'w') as file:
