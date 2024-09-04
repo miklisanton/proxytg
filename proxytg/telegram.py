@@ -1,108 +1,39 @@
 import json
 import re
 import os.path
-from selenium import webdriver
+from seleniumwire import webdriver
 from selenium.webdriver.chrome.options import Options
 import time
 import pickle
 import logging
 import requests
-import zipfile
 
 logger = logging.getLogger(__name__)
-
-manifest_json = """
-{
-    "version": "1.0.0",
-    "manifest_version": 2,
-    "name": "Chrome Proxy",
-    "permissions": [
-        "proxy",
-        "tabs",
-        "unlimitedStorage",
-        "storage",
-        "<all_urls>",
-        "webRequest",
-        "webRequestBlocking"
-    ],
-    "background": {
-        "scripts": ["background.js"]
-    },
-    "minimum_chrome_version":"22.0.0"
-}
-"""
-
-
-def generate_background(proxy_host, proxy_port, proxy_user, proxy_pass):
-    background_js = """
-    var config = {
-            mode: "fixed_servers",
-            rules: {
-            singleProxy: {
-                scheme: "http",
-                host: "%s",
-                port: parseInt(%s)
-            },
-            bypassList: ["localhost"]
-            }
-        };
-
-    chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
-
-    function callbackFn(details) {
-        return {
-            authCredentials: {
-                username: "%s",
-                password: "%s"
-            }
-        };
-    }
-
-    chrome.webRequest.onAuthRequired.addListener(
-                callbackFn,
-                {urls: ["<all_urls>"]},
-                ['blocking']
-    );
-        """ % (proxy_host, proxy_port, proxy_user, proxy_pass)
-    return background_js
-
-
-def get_chromedriver(proxy, host, use_proxy=False, user_agent=None):
-    path = os.path.dirname(os.path.abspath(__file__))
-    chrome_options = webdriver.ChromeOptions()
-    if use_proxy:
-        pluginfile = 'proxy_auth_plugin.zip'
-
-        proxy_pattern = re.compile(
-                r'^http://(?:([^:]+):([^@]+)@)?([^:]+):(\d+)$')
-        match = re.match(proxy_pattern, proxy)
-        with zipfile.ZipFile(pluginfile, 'w') as zp:
-            zp.writestr("manifest.json", manifest_json)
-            zp.writestr(
-                    "background.js",
-                    generate_background(match.group(3), match.group(4),
-                                        match.group(1), match.group(2)))
-        chrome_options.add_extension(pluginfile)
-    if user_agent:
-        chrome_options.add_argument('--user-agent=%s' % user_agent)
-    driver = webdriver.Remote(
-        host,
-        options=chrome_options)
-    return driver
 
 
 class TelegramAccount:
     base_url = "https://web.telegram.org"
 
-    def __init__(self, account_name, sessions_dir, host, proxy_data=None, mobile_proxy=False, user_agent=None):
+    def __init__(self, account_name, sessions_dir, proxy_data=None, mobile_proxy=False):
         self.account_name = account_name
         self.sessions_dir = sessions_dir
         os.makedirs(sessions_dir, exist_ok=True)
+        options = Options()
         if mobile_proxy:
             proxy_url = get_mobile_proxy(proxy_data)
         else:
             proxy_url = self.get_proxy()
-        self.driver = get_chromedriver(proxy_url, host, use_proxy=proxy_url != "-", user_agent=user_agent)
+        if proxy_url == "-":
+            seleniumwire_options = None
+        else:
+            seleniumwire_options = {
+                "proxy": {
+                    "http": proxy_url,
+                    "https": proxy_url
+                },
+            }
+
+        self.driver = webdriver.Chrome(options=options, seleniumwire_options=seleniumwire_options)
         self.fetch_account()
 
     def get_proxy(self):
